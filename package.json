@@ -17,6 +17,8 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@awesome-cordova-plugins/core": "^6.9.0",
+    "@awesome-cordova-plugins/wifi-wizard-2": "^6.9.0",
     "@capacitor-community/bluetooth-le": "^6.0.1",
     "@capacitor/android": "6.1.2",
     "@capacitor/app": "6.0.1",
@@ -28,9 +30,11 @@
     "@ionic/vue-router": "^8.0.0",
     "@vicons/ionicons5": "^0.12.0",
     "cordova-plugin-ble-central": "^1.7.4",
+    "cordova-plugin-wifiwizard2": "^3.1.1",
     "husky": "9.1.5",
     "ionicons": "^7.0.0",
     "lint-staged": "15.2.9",
+    "master": "^1.0.9",
     "prettier": "3.3.3",
     "vue": "^3.3.0",
     "vue-router": "^4.2.0"

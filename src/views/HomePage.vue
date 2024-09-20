@@ -40,10 +40,27 @@
               <n-text style="display: block">ID: {{ item.ble.id }}</n-text>
               <n-text style="display: block">Tín hiệu: {{ item.ble.rssi }} (dB)</n-text>
               <n-text style="display: block">Trạng thái: {{ msgStateBle2[item.state].text }}</n-text>
+              <n-text style="display: flex; align-items: center"
+                >Tình trạng:
+                <span
+                  style="padding: 1px 5px; border-radius: 5px"
+                  :style="{
+                    backgroundColor: item?.online ? '#64d22d' : '#5c728a',
+                  }"
+                  >{{ item?.online ? 'online' : 'offline' }}</span
+                ></n-text
+              >
             </div>
             <n-collapse-transition :show="item.state === 'connected'">
               <n-space vertical>
-                <n-input v-model:value="item.ssid" type="text" placeholder="SSID" />
+                <!-- <n-input v-model:value="item.ssid" type="text" placeholder="SSID" /> -->
+                <n-select
+                  v-model:value="item.ssid"
+                  placeholder="SSID"
+                  :loading="loadingWiFi"
+                  :options="accessPoint"
+                  @focus="scanAccessPoint"
+                />
                 <n-input v-model:value="item.password" type="text" placeholder="Password" />
                 <n-space justify="end">
                   <n-button @click="sendConfig(item)" round>Cấu hình</n-button>
@@ -63,6 +80,7 @@
 <script setup lang="ts">
 import { IonContent } from '@ionic/vue';
 import {
+  NSelect,
   NButton,
   NButtonGroup,
   NList,
@@ -75,10 +93,12 @@ import {
   NSpace,
   useMessage,
 } from 'naive-ui';
+import type { SelectOption } from 'naive-ui';
 import { reactive, ref } from 'vue';
 import { Bluetooth } from '@vicons/ionicons5';
 
 import { BleClient } from '@capacitor-community/bluetooth-le';
+import { WifiWizard2 } from '@awesome-cordova-plugins/wifi-wizard-2';
 
 const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 const CHARACTER_UUID = '1423492b-2bc3-4761-b2ba-8988573698a9';
@@ -89,14 +109,67 @@ interface DeviceProps {
   ble: BLECentralPlugin.PeripheralData;
   ssid: string;
   password: string;
+  online?: boolean;
+}
+
+interface AccessPointInfo {
+  level: any; // raw RSSI value
+  SSID: string; // SSID as string, with escaped double quotes: "\"ssid name\""
+  BSSID: string; // MAC address of WiFi router as string
+  frequency: any;
+  capabilities: any; // Describes the authentication, key management, and encryption schemes supported by the access point.
+  timestamp: any; // timestamp of when the scan was completed
+  channelWidth: any;
+  centerFreq0: any;
+  centerFreq1: any;
 }
 
 const scanning = ref(false);
 const message = useMessage();
 const devices: DeviceProps[] = reactive([]);
+const accessPoint = ref<SelectOption[]>([]);
+const loadingWiFi = ref(false);
 
 /* get device from local storage */
 const devicesStorage = localStorage.getItem('ble-devices');
+
+/* Init request permission if not permit */
+WifiWizard2.requestPermission()
+  .then(() => {
+    console.log('Wifi is enabled permission.');
+    WifiWizard2.isWifiEnabled()
+      .then(() => {
+        console.log('Wifi is enabled.');
+      })
+      .catch(() => {
+        WifiWizard2.enableWifi()
+          .then(() => {
+            console.log('Wifi is enabled.');
+          })
+          .catch(() => {
+            message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn không bật WiFi.');
+          });
+      });
+  })
+  .catch(() => {
+    message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn chưa cấp quyền WiFi.');
+  });
+
+/* Init service bluetooth device */
+BleClient.initialize()
+  .then(() => {
+    console.log('Bluetooth LE initialized');
+    BleClient.isEnabled()
+      .then((isEnabled) => {
+        console.log('Bluetooth LE enabled: ' + isEnabled);
+      })
+      .catch((error) => {
+        console.error('Bluetooth LE check failed', error);
+      });
+  })
+  .catch((error) => {
+    console.error('Bluetooth LE initialization failed', error);
+  });
 
 if (devicesStorage) {
   try {
@@ -119,6 +192,34 @@ if (devicesStorage) {
   }
 }
 
+const scanAccessPoint = async () => {
+  loadingWiFi.value = true;
+  try {
+    await WifiWizard2.startScan();
+    const networks: AccessPointInfo[] = await WifiWizard2.getScanResults({ numLevels: 0 });
+    /* clear access point data in input select */
+    accessPoint.value = [];
+    console.log('accessPoint', accessPoint.value);
+    console.log('networks', networks);
+    // const _ap = networks.map(
+    //   (network) =>
+    //     ({ label: `${network.SSID} (${network.BSSID})`, value: network.SSID, key: network.BSSID }) as SelectOption,
+    // );
+    for (const network of networks) {
+      accessPoint.value.push({
+        label: `${network.SSID} (${network.BSSID})`,
+        value: `${network.SSID}___${network.BSSID}`,
+      } as SelectOption);
+    }
+    // networks.forEach((network) =>
+    // );
+  } catch (error) {
+    console.log(error);
+    message.warning('Bạn đang spam dịch vụ quét WiFi, vui lòng thử lại sau 15s');
+  }
+  loadingWiFi.value = false;
+};
+
 const genDataDevice = (ble: BLECentralPlugin.PeripheralData): DeviceProps => {
   return {
     showForm: false,
@@ -126,6 +227,7 @@ const genDataDevice = (ble: BLECentralPlugin.PeripheralData): DeviceProps => {
     ssid: '',
     password: '',
     ble,
+    online: true,
   };
 };
 
@@ -167,33 +269,19 @@ const msgStateBle2 = {
   },
 };
 
-BleClient.initialize()
-  .then(() => {
-    console.log('Bluetooth LE initialized');
-    BleClient.isEnabled()
-      .then((isEnabled) => {
-        console.log('Bluetooth LE enabled: ' + isEnabled);
-      })
-      .catch((error) => {
-        console.error('Bluetooth LE check failed', error);
-      });
-  })
-  .catch((error) => {
-    console.error('Bluetooth LE initialization failed', error);
-  });
-
 const sendConfig = async (device: DeviceProps) => {
   try {
     if (device.state === 'connected') {
       /* do something right now */
-      console.log('send config: ', device.ble.id);
+      const ssid_completed = device.ssid.split('___')[0];
+      // console.log('send config: ', device.ble.id, ssid_completed);
       ble.write(
         device.ble.id,
         SERVICE_UUID,
         CHARACTER_UUID,
         new TextEncoder().encode(
           JSON.stringify({
-            ssid: device.ssid,
+            ssid: ssid_completed,
             password: device.password,
           }),
         ).buffer,
@@ -297,6 +385,18 @@ const scanBluetooth = async () => {
     if ((await BleClient.isEnabled()) === true && scanning.value === false) {
       /* clear ble list */
       scanning.value = true;
+      devices.forEach(async (device) => {
+        ble.readRSSI(
+          device.ble.id,
+          (rssi: number) => {
+            console.log(`rssi device ${device.ble.id}: ${rssi}`);
+          },
+          (err: string) => {
+            console.log(err);
+            device.online = false;
+          },
+        );
+      });
       ble.scan([SERVICE_UUID], 5, (result) => {
         console.log('result: ', result);
         /* check device exist in list */
@@ -314,7 +414,7 @@ const scanBluetooth = async () => {
       setTimeout(async () => {
         scanning.value = false;
         /* save data into local storage */
-        localStorage.setItem('ble-devices', JSON.stringify(devices));
+        localStorage.setItem('ble-devices', JSON.stringify(devices.map((item) => ({ ...item, online: false }))));
       }, 5000);
     }
   } catch (error) {
