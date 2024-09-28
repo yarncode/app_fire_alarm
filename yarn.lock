@@ -953,13 +953,6 @@
     "@babel/helper-validator-identifier" "^7.24.7"
     to-fast-properties "^2.0.0"
 
-"@capacitor-community/bluetooth-le@^6.0.1":
-  version "6.0.1"
-  resolved "https://registry.npmjs.org/@capacitor-community/bluetooth-le/-/bluetooth-le-6.0.1.tgz"
-  integrity sha512-ouMSW6ymhB4KAhl2uAcxWNGhMj5onqopQdixGyW8PWOc+KxpCnqkQNZ6MzRuGZUJUfdiJ28p6p64FAoTH2cy+Q==
-  dependencies:
-    "@types/web-bluetooth" "^0.0.20"
-
 "@capacitor/android@6.1.2":
   version "6.1.2"
   resolved "https://registry.npmjs.org/@capacitor/android/-/android-6.1.2.tgz"
@@ -1000,6 +993,11 @@
   integrity sha512-xFy1/4qLFLp5WCIzIhtwUuVNNoz36+V7/BzHmLqgVJcvotc4MMjswW/TshnPQaLLujEOaLkA4h8ZJ0uoK3ImGg==
   dependencies:
     tslib "^2.1.0"
+
+"@capacitor/device@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@capacitor/device/-/device-6.0.1.tgz#bb5cb2b9e9c37142b71d51e4c6eed84625ce821e"
+  integrity sha512-Tlz67DAO5GKb5YAfupXiENZxDww6mHnG9iKI+8D5SVF82VLpEv5r9qwKtiounuQB2y2HWiHV8tlOk7DqnLVUqQ==
 
 "@capacitor/haptics@6.0.1":
   version "6.0.1"
@@ -1655,11 +1653,6 @@
   resolved "https://registry.npmjs.org/@types/slice-ansi/-/slice-ansi-4.0.0.tgz"
   integrity sha512-+OpjSaq85gvlZAYINyzKpLeiFkSC4EsC6IIiT6v6TLSU5k5U83fHGj9Lel8oKEXM0HqgrMVCjXPDPVICtxF7EQ==
 
-"@types/web-bluetooth@^0.0.20":
-  version "0.0.20"
-  resolved "https://registry.npmjs.org/@types/web-bluetooth/-/web-bluetooth-0.0.20.tgz"
-  integrity sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==
-
 "@types/yauzl@^2.9.1":
   version "2.10.3"
   resolved "https://registry.npmjs.org/@types/yauzl/-/yauzl-2.10.3.tgz"
@@ -2146,6 +2139,15 @@ aws4@^1.8.0:
   version "1.13.1"
   resolved "https://registry.npmjs.org/aws4/-/aws4-1.13.1.tgz"
   integrity sha512-u5w79Rd7SU4JaIlA/zFqG+gOiuq25q5VLyZ8E+ijJeILuTxVzZgp2CaGw/UTw6pXYN9XMO9yiqj/nEHmhTG5CA==
+
+axios@^1.7.7:
+  version "1.7.7"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.7.7.tgz#2f554296f9892a72ac8d8e4c5b79c14a91d0a47f"
+  integrity sha512-S4kL7XrjgBmvdGut0sN3yJxqYzrDOnivkBiN0OFs6hLiUam3UPvswUo0kqGyhqUZGEOytHyumEdXsAkgCOUf3Q==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.0"
+    proxy-from-env "^1.1.0"
 
 babel-plugin-polyfill-corejs2@^0.4.10:
   version "0.4.11"
@@ -2823,6 +2825,11 @@ es-errors@^1.3.0:
   resolved "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz"
   integrity sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==
 
+es6-promise-plugin@^4.2.2:
+  version "4.2.2"
+  resolved "https://registry.yarnpkg.com/es6-promise-plugin/-/es6-promise-plugin-4.2.2.tgz#cfa0cc1383d91f999a62a2bbf4bd97bec305e0ac"
+  integrity sha512-uoA4aVplXI9oqUYJFBAVRwAqIN9/n9JgrTAUGX3qPbnSZVE5yY1+6/MsoN5f4xsaPO62WjPHOdtts6okMN6tNA==
+
 esbuild@^0.20.1:
   version "0.20.2"
   resolved "https://registry.npmjs.org/esbuild/-/esbuild-0.20.2.tgz"
@@ -3131,6 +3138,11 @@ flatted@^3.2.9:
   version "3.3.1"
   resolved "https://registry.npmjs.org/flatted/-/flatted-3.3.1.tgz"
   integrity sha512-X8cqMLLie7KsNUDSdzeN8FYK9rEt4Dt67OsG/DNGnYTSDBG4uFAJFBnUeiV+zCVAvwFy56IjM9sH51jVaEhNxw==
+
+follow-redirects@^1.15.6:
+  version "1.15.9"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.15.9.tgz#a604fa10e443bf98ca94228d9eebcc2e8a2c8ee1"
+  integrity sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==
 
 foreground-child@^3.1.0:
   version "3.3.0"
@@ -4353,6 +4365,14 @@ pify@^2.2.0:
   resolved "https://registry.npmjs.org/pify/-/pify-2.3.0.tgz"
   integrity sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==
 
+pinia@^2.2.2:
+  version "2.2.2"
+  resolved "https://registry.yarnpkg.com/pinia/-/pinia-2.2.2.tgz#dcf576c9a778187d1542c5e6a9f8b8cd5b6aea14"
+  integrity sha512-ja2XqFWZC36mupU4z1ZzxeTApV7DOw44cV4dhQ9sGwun+N89v/XP7+j7q6TanS1u1tdbK4r+1BUx7heMaIdagA==
+  dependencies:
+    "@vue/devtools-api" "^6.6.3"
+    vue-demi "^0.14.10"
+
 pkg-types@^1.1.1:
   version "1.2.0"
   resolved "https://registry.npmjs.org/pkg-types/-/pkg-types-1.2.0.tgz"
@@ -4434,6 +4454,11 @@ proxy-from-env@1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.0.0.tgz"
   integrity sha512-F2JHgJQ1iqwnHDcQjVBsq3n/uoaFL+iPW/eAeL7kVxy/2RrWaN4WroKjjvbsoRtv0ftelNyC01bjRhn/bhcf4A==
+
+proxy-from-env@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/proxy-from-env/-/proxy-from-env-1.1.0.tgz#e102f16ca355424865755d2c9e8ea4f24d58c3e2"
+  integrity sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==
 
 psl@^1.1.33:
   version "1.9.0"
@@ -5260,6 +5285,11 @@ vue-component-type-helpers@^2.0.0:
   version "2.0.29"
   resolved "https://registry.npmjs.org/vue-component-type-helpers/-/vue-component-type-helpers-2.0.29.tgz"
   integrity sha512-58i+ZhUAUpwQ+9h5Hck0D+jr1qbYl4voRt5KffBx8qzELViQ4XdT/Tuo+mzq8u63teAG8K0lLaOiL5ofqW38rg==
+
+vue-demi@^0.14.10:
+  version "0.14.10"
+  resolved "https://registry.yarnpkg.com/vue-demi/-/vue-demi-0.14.10.tgz#afc78de3d6f9e11bf78c55e8510ee12814522f04"
+  integrity sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==
 
 vue-eslint-parser@^9.3.1, vue-eslint-parser@^9.4.3:
   version "9.4.3"

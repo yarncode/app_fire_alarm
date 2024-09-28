@@ -97,8 +97,8 @@ import type { SelectOption } from 'naive-ui';
 import { reactive, ref } from 'vue';
 import { Bluetooth } from '@vicons/ionicons5';
 
-import { BleClient } from '@capacitor-community/bluetooth-le';
 import { WifiWizard2 } from '@awesome-cordova-plugins/wifi-wizard-2';
+import { Device } from '@capacitor/device';
 
 const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 const CHARACTER_UUID = '1423492b-2bc3-4761-b2ba-8988573698a9';
@@ -133,64 +133,58 @@ const loadingWiFi = ref(false);
 /* get device from local storage */
 const devicesStorage = localStorage.getItem('ble-devices');
 
-/* Init request permission if not permit */
-WifiWizard2.requestPermission()
-  .then(() => {
-    console.log('Wifi is enabled permission.');
-    WifiWizard2.isWifiEnabled()
-      .then(() => {
-        console.log('Wifi is enabled.');
-      })
-      .catch(() => {
-        WifiWizard2.enableWifi()
-          .then(() => {
-            console.log('Wifi is enabled.');
-          })
-          .catch(() => {
-            message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn không bật WiFi.');
-          });
-      });
-  })
-  .catch(() => {
-    message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn chưa cấp quyền WiFi.');
-  });
+Device.getInfo()
+  .then((info) => {
+    console.log(info.platform);
+    if (info.platform === 'android') {
+      /* Init request permission if not permit */
+      WifiWizard2.requestPermission()
+        .then(() => {
+          console.log('Wifi is enabled permission.');
+          WifiWizard2.isWifiEnabled()
+            .then(() => {
+              console.log('Wifi is enabled.');
+            })
+            .catch(() => {
+              WifiWizard2.enableWifi()
+                .then(() => {
+                  console.log('Wifi is enabled.');
+                })
+                .catch(() => {
+                  message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn không bật WiFi.');
+                });
+            });
+        })
+        .catch(() => {
+          message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn chưa cấp quyền WiFi.');
+        });
 
-/* Init service bluetooth device */
-BleClient.initialize()
-  .then(() => {
-    console.log('Bluetooth LE initialized');
-    BleClient.isEnabled()
-      .then((isEnabled) => {
-        console.log('Bluetooth LE enabled: ' + isEnabled);
-      })
-      .catch((error) => {
-        console.error('Bluetooth LE check failed', error);
-      });
+      /* verify device from local storage */
+      if (devicesStorage) {
+        try {
+          const devicesData: DeviceProps[] = JSON.parse(devicesStorage);
+          console.log('load from local storage => ', devicesData);
+          devicesData.forEach((item: DeviceProps) => {
+            ble.isConnected(
+              item.ble.id,
+              () => {
+                devices.push({ ...item, state: 'connected' });
+              },
+              (error) => {
+                console.log(error);
+                devices.push({ ...item, state: 'disconnected' });
+              },
+            );
+          });
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    }
   })
   .catch((error) => {
-    console.error('Bluetooth LE initialization failed', error);
-  });
-
-if (devicesStorage) {
-  try {
-    const devicesData: DeviceProps[] = JSON.parse(devicesStorage);
-    console.log('load from local storage => ', devicesData);
-    devicesData.forEach((item: DeviceProps) => {
-      ble.isConnected(
-        item.ble.id,
-        () => {
-          devices.push({ ...item, state: 'connected' });
-        },
-        (error) => {
-          console.log(error);
-          devices.push({ ...item, state: 'disconnected' });
-        },
-      );
-    });
-  } catch (error) {
     console.log(error);
-  }
-}
+  });
 
 const scanAccessPoint = async () => {
   loadingWiFi.value = true;
@@ -361,28 +355,15 @@ const disconnectBle = async (device: DeviceProps) => {
 };
 
 const openBluetooth = async () => {
-  try {
-    if ((await BleClient.isEnabled()) === false) {
-      await BleClient.enable();
-    }
-  } catch (error) {
-    console.log(error);
-  }
+  await ble.withPromises.enable();
 };
 
-const closeBluetooth = async () => {
-  try {
-    if ((await BleClient.isEnabled()) === true) {
-      await BleClient.disable();
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
+const closeBluetooth = async () => {};
 
 const scanBluetooth = async () => {
   try {
-    if ((await BleClient.isEnabled()) === true && scanning.value === false) {
+    await ble.withPromises.enable();
+    if (scanning.value === false) {
       /* clear ble list */
       scanning.value = true;
       devices.forEach(async (device) => {
