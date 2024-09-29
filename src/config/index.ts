@@ -2,6 +2,7 @@ export interface PayloadConfigEnv {
   server: {
     hostName: string;
     apiPort: number;
+    socketPort: number;
     entryPath: string;
     apiVersion: string;
   };
@@ -11,8 +12,9 @@ export const CONFIG_ENV: ENV_APP = 'dev';
 export const main_config: { [key in ENV_APP]: PayloadConfigEnv } = {
   dev: {
     server: {
-      hostName: 'localhost',
+      hostName: '192.168.1.7',
       apiPort: 3300,
+      socketPort: 3000,
       entryPath: 'api',
       apiVersion: 'v1',
     },
@@ -21,6 +23,7 @@ export const main_config: { [key in ENV_APP]: PayloadConfigEnv } = {
     server: {
       hostName: 'localhost',
       apiPort: 3300,
+      socketPort: 3000,
       entryPath: 'api',
       apiVersion: 'v1',
     },

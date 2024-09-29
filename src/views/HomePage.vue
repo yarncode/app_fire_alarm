@@ -24,7 +24,7 @@
       </n-button-group>
       <!-- show list device scan -->
       <n-list style="overflow-y: scroll" v-if="devices.length > 0" bordered clickable>
-        <n-list-item v-for="(item, num) in devices" :key="num">
+        <n-list-item v-show="item?.online" v-for="(item, num) in devices" :key="num">
           <n-space vertical>
             <div style="position: relative">
               <n-button
@@ -65,6 +65,11 @@
                 <n-space justify="end">
                   <n-button @click="sendConfig(item)" round>Cấu hình</n-button>
                 </n-space>
+                <n-collapse-transition :show="item.step.show">
+                  <n-steps size="small" vertical :current="item.step.current" :status="item.step.status">
+                    <n-step v-for="step in stepModal" :key="step.label" :title="step.label" :description="step.desc" />
+                  </n-steps>
+                </n-collapse-transition>
               </n-space>
             </n-collapse-transition>
           </n-space>
@@ -91,17 +96,31 @@ import {
   NCollapseTransition,
   NInput,
   NSpace,
+  NSteps,
+  NStep,
   useMessage,
+  StepsProps,
 } from 'naive-ui';
 import type { SelectOption } from 'naive-ui';
-import { reactive, ref } from 'vue';
+import { onUnmounted, reactive, ref, watch } from 'vue';
 import { Bluetooth } from '@vicons/ionicons5';
+import { useAuthStore } from '@/store/auth';
+import { useSocketStore } from '@/store/socket';
+import { useProfileStore } from '@/store/profile';
+import { storeToRefs } from 'pinia';
+import { watchOnce } from '@vueuse/core';
 
 import { WifiWizard2 } from '@awesome-cordova-plugins/wifi-wizard-2';
 import { Device } from '@capacitor/device';
 
 const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 const CHARACTER_UUID = '1423492b-2bc3-4761-b2ba-8988573698a9';
+
+interface DeviceStepProps {
+  show: boolean;
+  current: number;
+  status: StepsProps['status'];
+}
 
 interface DeviceProps {
   showForm: boolean;
@@ -110,6 +129,7 @@ interface DeviceProps {
   ssid: string;
   password: string;
   online?: boolean;
+  step: DeviceStepProps;
 }
 
 interface AccessPointInfo {
@@ -124,6 +144,27 @@ interface AccessPointInfo {
   centerFreq1: any;
 }
 
+const stepModal: Array<{
+  label: string;
+  desc: string;
+}> = [
+  {
+    label: 'Configuration',
+    desc: 'Device send config WiFi.',
+  },
+  {
+    label: 'Connect Server',
+    desc: 'Connection device to Server establish.',
+  },
+  {
+    label: 'Done',
+    desc: 'Device is setup.',
+  },
+];
+const authStore = useAuthStore();
+const profileStore = storeToRefs(useProfileStore());
+const socketStore = useSocketStore();
+const step_default: DeviceStepProps = { show: false, current: 0, status: 'wait' };
 const scanning = ref(false);
 const message = useMessage();
 const devices: DeviceProps[] = reactive([]);
@@ -133,9 +174,25 @@ const loadingWiFi = ref(false);
 /* get device from local storage */
 const devicesStorage = localStorage.getItem('ble-devices');
 
+const deviceReceived = (data: any) => {
+  console.log('device received: ', data);
+};
+
+watchOnce([profileStore.isUpdated], ([status]) => {
+  // console.log('profile is update: ', status);
+  if (status) {
+    /* profile is update */
+    socketStore.socketIo.on(`${profileStore.id}/devices`, deviceReceived);
+  }
+});
+
+onUnmounted(() => {
+  socketStore.socketIo.off(`${profileStore.id}/devices`);
+});
+
 Device.getInfo()
   .then((info) => {
-    console.log(info.platform);
+    // console.log(info.platform);
     if (info.platform === 'android') {
       /* Init request permission if not permit */
       WifiWizard2.requestPermission()
@@ -168,11 +225,11 @@ Device.getInfo()
             ble.isConnected(
               item.ble.id,
               () => {
-                devices.push({ ...item, state: 'connected' });
+                devices.push({ ...item, state: 'connected', step: step_default });
               },
               (error) => {
                 console.log(error);
-                devices.push({ ...item, state: 'disconnected' });
+                devices.push({ ...item, state: 'disconnected', step: step_default });
               },
             );
           });
@@ -222,6 +279,11 @@ const genDataDevice = (ble: BLECentralPlugin.PeripheralData): DeviceProps => {
     password: '',
     ble,
     online: true,
+    step: {
+      show: false,
+      current: 0,
+      status: 'wait',
+    },
   };
 };
 
@@ -269,12 +331,19 @@ const sendConfig = async (device: DeviceProps) => {
       /* do something right now */
       const ssid_completed = device.ssid.split('___')[0];
       // console.log('send config: ', device.ble.id, ssid_completed);
+      const oldToken = authStore.runtimeToken;
+      await authStore.forceRefreshToken();
+      const token = authStore.runtimeToken;
+
+      console.log('token is new', token !== oldToken);
+
       ble.write(
         device.ble.id,
         SERVICE_UUID,
         CHARACTER_UUID,
         new TextEncoder().encode(
           JSON.stringify({
+            token,
             ssid: ssid_completed,
             password: device.password,
           }),
@@ -371,6 +440,7 @@ const scanBluetooth = async () => {
           device.ble.id,
           (rssi: number) => {
             console.log(`rssi device ${device.ble.id}: ${rssi}`);
+            device.online = true;
           },
           (err: string) => {
             console.log(err);

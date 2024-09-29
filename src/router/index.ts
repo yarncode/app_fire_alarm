@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from '@ionic/vue-router';
 import { RouteRecordRaw } from 'vue-router';
+import { useAuthStore } from '@/store/auth';
+
 import HomePage from '../views/HomePage.vue';
 import AccountPage from '../views/AccountPage.vue';
-import { useAuthStore } from '@/store/auth';
+import ProfilePage from '../views/ProfilePage.vue';
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -18,6 +20,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/account',
     name: 'Account',
     component: AccountPage,
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: ProfilePage,
   },
 ];
 
@@ -39,8 +46,15 @@ router.beforeEach((to, from, next) => {
 
   if (to.name !== 'Account' && isAuth === false) {
     next({ name: 'Account' });
-  } else if (to.name === 'Account' && isAuth) {
-    next({ name: 'Home' });
+  } else if (isAuth) {
+    /* redirect to home if user attempt to login */
+    if (to.name === 'Account') {
+      next({ name: 'Home' });
+    }
+
+    /* dispatch check token */
+    authStore.runCheckRefreshToken();
+    next();
   } else {
     next();
   }

@@ -1,10 +1,13 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+
 import App from './App.vue';
 import router from './router';
 import configAxios from './api';
 
 import { IonicVue } from '@ionic/vue';
+
+import '@/config/style/tailwind.css'
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/vue/css/core.css';

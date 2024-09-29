@@ -1,7 +1,7 @@
 <template>
   <ion-content :fullscreen="true">
     <div style="margin: 0 2rem; height: 100%; display: flex; flex-direction: column; justify-content: center">
-      <p style="font-size: 1.5rem">{{ viewMode === 'login' ? 'Register' : 'Login' }} Page</p>
+      <p style="font-size: 1.5rem">{{ viewMode === 'login' ? 'Login' : 'Register' }} Page</p>
       <n-form ref="formRef" :label-width="80" :model="formValue" :rules="rules" size="large" style="margin: 1rem 0">
         <n-form-item label="Email" path="email">
           <n-input v-model:value="formValue.email" clearable placeholder="example: abc@gmail.com" />
