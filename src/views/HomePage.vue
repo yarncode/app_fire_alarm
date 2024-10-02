@@ -1,27 +1,16 @@
 <template>
   <ion-content :fullscreen="true">
     <div style="margin: 0 0.5rem; height: 100%; display: flex; flex-direction: column">
-      <n-button-group style="width: 100%; padding: 0.5rem 0">
-        <n-button style="flex: 1" type="primary" round @click="openBluetooth">
-          <template #icon>
-            <n-icon><Bluetooth /></n-icon>
-          </template>
-          Open
-        </n-button>
-        <n-button style="flex: 1" type="error" @click="closeBluetooth">
-          <template #icon>
-            <n-icon><Bluetooth /></n-icon>
-          </template>
-          Close
-        </n-button>
-        <n-button style="flex: 1" type="warning" round @click="scanBluetooth" :disabled="scanning">
+      <div style="width: 100%; padding: 0.5rem 0; display: flex; justify-content: space-between; align-items: center">
+        <n-text>Found: {{ devices.filter((item) => item?.online).length }} devices</n-text>
+        <n-button type="warning" round @click="scanBluetooth" :disabled="scanning">
           <template #icon>
             <n-spin v-if="scanning" stroke="#000" size="small" />
             <n-icon v-else><Bluetooth /></n-icon>
           </template>
           <n-text style="color: inherit; margin-left: 0.4rem">Scan</n-text>
         </n-button>
-      </n-button-group>
+      </div>
       <!-- show list device scan -->
       <n-list style="overflow-y: scroll" v-if="devices.length > 0" bordered clickable>
         <n-list-item v-show="item?.online" v-for="(item, num) in devices" :key="num">
@@ -36,12 +25,12 @@
                 {{ msgStateBle[item.state].text }}
                 >
               </n-button>
-              <n-text style="display: block">Tên: {{ item.ble.name }}</n-text>
+              <n-text style="display: block">Name: {{ item.ble.name }}</n-text>
               <n-text style="display: block">ID: {{ item.ble.id }}</n-text>
-              <n-text style="display: block">Tín hiệu: {{ item.ble.rssi }} (dB)</n-text>
-              <n-text style="display: block">Trạng thái: {{ msgStateBle2[item.state].text }}</n-text>
+              <n-text style="display: block">Signal: {{ item.ble.rssi }} (dB)</n-text>
+              <n-text style="display: block">Status: {{ msgStateBle2[item.state].text }}</n-text>
               <n-text style="display: flex; align-items: center"
-                >Tình trạng:
+                >Health:
                 <span
                   style="padding: 1px 5px; border-radius: 5px"
                   :style="{
@@ -51,7 +40,7 @@
                 ></n-text
               >
             </div>
-            <n-collapse-transition :show="item.state === 'connected'">
+            <n-collapse-transition :show="item.state === 'connected' || item.step.show === true">
               <n-space vertical>
                 <!-- <n-input v-model:value="item.ssid" type="text" placeholder="SSID" /> -->
                 <n-select
@@ -102,7 +91,7 @@ import {
   StepsProps,
 } from 'naive-ui';
 import type { SelectOption } from 'naive-ui';
-import { onUnmounted, reactive, ref, watch } from 'vue';
+import { onUnmounted, reactive, ref } from 'vue';
 import { Bluetooth } from '@vicons/ionicons5';
 import { useAuthStore } from '@/store/auth';
 import { useSocketStore } from '@/store/socket';
@@ -116,10 +105,13 @@ import { Device } from '@capacitor/device';
 const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 const CHARACTER_UUID = '1423492b-2bc3-4761-b2ba-8988573698a9';
 
+type ConfigState = 'CONFIG' | 'CONNECT';
+
 interface DeviceStepProps {
   show: boolean;
   current: number;
   status: StepsProps['status'];
+  timerTimeoutId: number;
 }
 
 interface DeviceProps {
@@ -130,6 +122,16 @@ interface DeviceProps {
   password: string;
   online?: boolean;
   step: DeviceStepProps;
+}
+
+interface DeviceActiveResponse {
+  timestamp: number;
+  mac: string; // mac ble
+  ip: string;
+  netmask: string;
+  gateway: string;
+  ssid: string;
+  password: string;
 }
 
 interface AccessPointInfo {
@@ -144,6 +146,21 @@ interface AccessPointInfo {
   centerFreq1: any;
 }
 
+const stepMapValue: {
+  [key: string]: {
+    state: StepsProps['status'];
+    value: number;
+  };
+} = {
+  CONFIG: {
+    state: 'finish',
+    value: 1,
+  },
+  CONNECT: {
+    state: 'finish',
+    value: 2,
+  },
+};
 const stepModal: Array<{
   label: string;
   desc: string;
@@ -156,15 +173,11 @@ const stepModal: Array<{
     label: 'Connect Server',
     desc: 'Connection device to Server establish.',
   },
-  {
-    label: 'Done',
-    desc: 'Device is setup.',
-  },
 ];
+const step_default: DeviceStepProps = { show: false, current: 0, status: 'wait', timerTimeoutId: 0 };
 const authStore = useAuthStore();
 const profileStore = storeToRefs(useProfileStore());
 const socketStore = useSocketStore();
-const step_default: DeviceStepProps = { show: false, current: 0, status: 'wait' };
 const scanning = ref(false);
 const message = useMessage();
 const devices: DeviceProps[] = reactive([]);
@@ -174,15 +187,29 @@ const loadingWiFi = ref(false);
 /* get device from local storage */
 const devicesStorage = localStorage.getItem('ble-devices');
 
-const deviceReceived = (data: any) => {
+const handleActiveResponse = async (data: DeviceActiveResponse) => {
   console.log('device received: ', data);
+  const { mac } = data;
+
+  if (mac) {
+    const macCapitalize = mac.toUpperCase();
+    /* stop timer timeout */
+    stopTimerTimoutCreateDevice(macCapitalize);
+    setStateActive(macCapitalize, 'CONNECT', 'finish');
+
+    /* close collapse ui after 1s */
+    await closeCollapseDeviceWithTime(macCapitalize, 2);
+    message.success('Device connected to server successfully.', {
+      duration: 3000,
+    });
+  }
 };
 
 watchOnce([profileStore.isUpdated], ([status]) => {
   // console.log('profile is update: ', status);
   if (status) {
     /* profile is update */
-    socketStore.socketIo.on(`${profileStore.id}/devices`, deviceReceived);
+    socketStore.socketIo.on(`${profileStore.id.value}/device/active`, handleActiveResponse);
   }
 });
 
@@ -208,12 +235,12 @@ Device.getInfo()
                   console.log('Wifi is enabled.');
                 })
                 .catch(() => {
-                  message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn không bật WiFi.');
+                  message.error('Looking for WiFi failure. Please enable WiFi.');
                 });
             });
         })
         .catch(() => {
-          message.error('Tìm kiếm mạng xung quanh sẽ không được, nếu bạn chưa cấp quyền WiFi.');
+          message.error('Looking for WiFi failure. Please enable WiFi.');
         });
 
       /* verify device from local storage */
@@ -242,6 +269,66 @@ Device.getInfo()
   .catch((error) => {
     console.log(error);
   });
+
+const stopTimerTimoutCreateDevice = (id: string) => {
+  const _device = devices.find((item) => item.ble.id === id);
+
+  if (_device && _device.step.timerTimeoutId) {
+    console.log('clear timer: ', _device.step.timerTimeoutId);
+    clearTimeout(_device.step.timerTimeoutId);
+  }
+};
+
+const startTimerTimoutCreateDevice = (id: string, time: number) => {
+  const _device = devices.find((item) => item.ble.id === id);
+
+  if (_device) {
+    _device.step.timerTimeoutId = setTimeout(() => {
+      setStateActive(id, 'CONNECT', 'error');
+      message.error('Device connect to server failed. Please try again.');
+    }, time * 1000) as unknown as number;
+    console.log('start timer: ', _device.step.timerTimeoutId);
+  }
+};
+
+const closeCollapseDeviceWithTime = async (id: string, time: number) => {
+  return new Promise((resolve) => {
+    let _index = 0;
+    const _found_device = devices.find((item, index) => {
+      if (item.ble.id === id) {
+        _index = index;
+        return true;
+      }
+      return false;
+    });
+    if (_found_device) {
+      setTimeout(() => {
+        devices[_index].step.show = false;
+        resolve(null);
+      }, time * 1000);
+    } else {
+      resolve(null);
+    }
+  });
+};
+
+const setStateActive = (id: string, state: ConfigState, status: StepsProps['status']) => {
+  let index: number = 0;
+  const _found_device = devices.find((item, _index) => {
+    if (item.ble.id === id) {
+      index = _index;
+      return true;
+    }
+    return false;
+  });
+  if (_found_device) {
+    devices[index].step = {
+      ...devices[index].step,
+      status,
+      current: stepMapValue[state].value,
+    };
+  }
+};
 
 const scanAccessPoint = async () => {
   loadingWiFi.value = true;
@@ -283,6 +370,7 @@ const genDataDevice = (ble: BLECentralPlugin.PeripheralData): DeviceProps => {
       show: false,
       current: 0,
       status: 'wait',
+      timerTimeoutId: 0,
     },
   };
 };
@@ -328,6 +416,11 @@ const msgStateBle2 = {
 const sendConfig = async (device: DeviceProps) => {
   try {
     if (device.state === 'connected') {
+      device.step.show = true;
+
+      /* init state config */
+      setStateActive(device.ble.id, 'CONFIG', 'wait');
+
       /* do something right now */
       const ssid_completed = device.ssid.split('___')[0];
       // console.log('send config: ', device.ble.id, ssid_completed);
@@ -349,12 +442,17 @@ const sendConfig = async (device: DeviceProps) => {
           }),
         ).buffer,
         () => {
-          console.log('Send config success');
-          message.success('Cấu hình WiFi đã được gửi.');
+          // console.log('Send config success');
+          // message.success('Cấu hình WiFi đã được gửi.');
+          setStateActive(device.ble.id, 'CONFIG', 'finish');
+
+          /* start timer timeout */
+          startTimerTimoutCreateDevice(device.ble.id, 25);
         },
         (error) => {
           console.error(error);
-          message.error('Cấu hình WiFi gửi không thành công.');
+          // message.error('Cấu hình WiFi gửi không thành công.');
+          setStateActive(device.ble.id, 'CONFIG', 'error');
         },
       );
     }

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { ACCOUNT_MESSAGE, AccountResponse } from '@/interface/account';
 import { useProfileStore } from '@/store/profile';
+import { useSocketStore } from '@/store/socket';
 import api from '@/api';
 
 export interface ResponseRefreshToken extends AccountResponse {
@@ -24,10 +25,18 @@ export const useAuthStore = defineStore('auth', {
   }),
   actions: {
     setToken(type: TokenType, token: string) {
+      console.log('set token: ', type);
+
       this[type] = token;
       localStorage.setItem(type, token);
-      if (type === 'runtime_token') {
-        this.runCheckRefreshToken(); // start calculate time to refresh token
+    },
+    addAuthSocketIo(token: string) {
+      const socketStore = useSocketStore();
+
+      /* start client socket connection */
+      if (socketStore.socketIo.connected === false) {
+        /* set auth */
+        socketStore.setAuth(token);
       }
     },
     clearToken(type: TokenType) {
@@ -47,6 +56,8 @@ export const useAuthStore = defineStore('auth', {
     },
     runCheckRefreshToken() {
       let getNew = false;
+      const profileStore = useProfileStore();
+
       if (!this.refresh_token) {
         return;
       }
@@ -63,6 +74,10 @@ export const useAuthStore = defineStore('auth', {
       } else {
         /* token not expire */
         this.calculateIntervalRefreshToken();
+        /* add auth socket */
+        this.addAuthSocketIo(this.runtimeToken);
+        /* get profile user */
+        profileStore.getProfile();
         return;
       }
 
@@ -94,12 +109,13 @@ export const useAuthStore = defineStore('auth', {
             const data: ResponseRefreshToken = response.data;
             if (data.code === '108011') {
               console.log('token is refresh');
-              this.runtime_token = data.runtime_token ?? '';
 
+              this.setToken('runtime_token', data.runtime_token ?? '');
               /* restart calculate time to refresh */
               this.calculateIntervalRefreshToken();
-
-              /* check profile is updated */
+              /* add auth socket */
+              this.addAuthSocketIo(this.runtimeToken);
+              /* get profile user */
               profileStore.getProfile();
 
               resolve(data.runtime_token ?? '');

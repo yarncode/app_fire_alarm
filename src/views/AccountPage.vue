@@ -131,14 +131,35 @@ const submitForm = () => {
         if (viewMode.value === 'login') {
           try {
             const response = await axios?.post('/account/login', {
-              email: formValue.value.email,
-              password: formValue.value.password,
+              email: formValue.value.email.trim(),
+              password: formValue.value.password.trim(),
             });
             const payload: ResponseLogin = response?.data;
             console.log(payload);
 
             if (payload.code === '108009') {
               message.success('Login successfully');
+              authStore.setToken('refresh_token', payload.refresh_token);
+              authStore.setToken('runtime_token', payload.runtime_token);
+              router.push({ name: 'Home' });
+            }
+          } catch (error: any) {
+            if (error instanceof AxiosError) {
+              const data = error.response?.data as ResponseLogin;
+              message.error(ACCOUNT_MESSAGE[data.code]);
+            }
+          }
+        } else if (viewMode.value === 'register') {
+          try {
+            const response = await axios?.post('/account/register', {
+              email: formValue.value.email.trim(),
+              password: formValue.value.password.trim(),
+            });
+            const payload: ResponseLogin = response?.data;
+            console.log(payload);
+
+            if (payload.code === '108008') {
+              message.success('Register successfully');
               authStore.setToken('refresh_token', payload.refresh_token);
               authStore.setToken('runtime_token', payload.runtime_token);
               router.push({ name: 'Home' });

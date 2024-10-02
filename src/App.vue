@@ -124,10 +124,6 @@ socketStore.socketIo.on('disconnect', () => {
   console.log('disconnected: ', socketStore.socketIo.id);
 });
 
-if (socketStore.socketIo.connected) {
-  socketStore.socketIo.connect();
-}
-
 try {
   /* config nbot found */
   if (configTheme == null) {
