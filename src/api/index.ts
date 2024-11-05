@@ -1,16 +1,15 @@
 import axios from 'axios';
-import { main_config, CONFIG_ENV } from '../config';
 import { useAuthStore } from '@/store/auth';
+import { useSettingStore } from '@/store/setting';
 
-const config = main_config[CONFIG_ENV];
-const api = axios.create({
-  baseURL: `http://${config.server.hostName}:${config.server.apiPort}/${config.server.entryPath}/${config.server.apiVersion}`,
-});
+const api = axios.create();
 
 api.interceptors.request.use(
   function (config) {
     const authStore = useAuthStore();
+    const { _hostName, _apiPort, _apiVersion, _entryPath } = useSettingStore();
     // console.log(config.url);
+    config.baseURL = `http://${_hostName}:${_apiPort}/${_entryPath}/${_apiVersion}`;
     if (authStore.runtimeToken && config.url !== '/account/refresh-token') {
       config.headers['_token'] = authStore.runtimeToken;
     }

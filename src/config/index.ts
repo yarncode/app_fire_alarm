@@ -12,7 +12,7 @@ export const CONFIG_ENV: ENV_APP = 'dev';
 export const main_config: { [key in ENV_APP]: PayloadConfigEnv } = {
   dev: {
     server: {
-      hostName: '192.168.1.7',
+      hostName: '192.168.1.10',
       apiPort: 3300,
       socketPort: 3000,
       entryPath: 'api',

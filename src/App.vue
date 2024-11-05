@@ -3,9 +3,10 @@
     <n-message-provider :max="1">
       <ion-page>
         <ion-header v-show="$route.name !== 'Account'" :translucent="true">
-          <ion-toolbar>
+          <ion-toolbar class="flex">
             <ion-title>{{ title }}</ion-title>
             <ion-buttons slot="primary">
+              <n-button round disabled class="mr-2" :type="socketStore.socketIo.connected ? 'success' : 'error'">Server Status</n-button>
               <n-button @click="toggleDrawer" tertiary circle class="mr-3">
                 <template #icon>
                   <n-icon>
@@ -35,6 +36,7 @@
             <component :is="Component" :key="route.path" />
           </transition>
         </router-view>
+        <setting-float-button />
       </ion-page>
     </n-message-provider>
   </n-config-provider>
@@ -59,6 +61,8 @@ import {
 import { GridOutline } from '@vicons/ionicons5';
 import { useAuthStore } from '@/store/auth';
 import { useSocketStore } from '@/store/socket';
+
+import SettingFloatButton from '@/components/SettingFloatButton.vue';
 
 interface ConfigTheme {
   theme: 'dark' | 'light';
@@ -87,17 +91,18 @@ const listMenu: Array<MenuItemCustom> = [
     type: 'route',
     nameRoute: 'Home',
   },
-  {
-    label: 'Profile',
-    type: 'route',
-    nameRoute: 'Profile',
-  },
+  // {
+  //   label: 'Profile',
+  //   type: 'route',
+  //   nameRoute: 'Profile',
+  // },
   {
     label: 'Logout',
     type: 'action',
     action() {
       /* do something here */
       authStore.logout();
+      socketStore.socketIo.disconnect();
       router.push({ name: 'Account' });
     },
   },
@@ -116,13 +121,20 @@ const title = computed(() => {
   return present_title;
 });
 
-socketStore.socketIo.on('connect', () => {
-  console.log('connected: ', socketStore.socketIo.id);
-});
+// socketStore.socketIo.on('connect', () => {
+//   console.log(
+//     'connected: ',
+//     socketStore.socketIo.id,
+//     'hostname: ',
+//     socketStore.socketIo.io.opts.hostname,
+//     'port: ',
+//     socketStore.socketIo.io.opts.port,
+//   );
+// });
 
-socketStore.socketIo.on('disconnect', () => {
-  console.log('disconnected: ', socketStore.socketIo.id);
-});
+// socketStore.socketIo.on('disconnect', () => {
+//   console.log('disconnected: ', socketStore.socketIo.id);
+// });
 
 try {
   /* config nbot found */
@@ -138,10 +150,10 @@ try {
   console.error(error);
 }
 
-const changeTheme = () => {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('theme-config', JSON.stringify({ theme: theme.value }));
-};
+// const changeTheme = () => {
+//   theme.value = theme.value === 'dark' ? 'light' : 'dark';
+//   localStorage.setItem('theme-config', JSON.stringify({ theme: theme.value }));
+// };
 
 const toggleDrawer = () => {
   activeDrawer.value = !activeDrawer.value;

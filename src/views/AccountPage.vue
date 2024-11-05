@@ -71,8 +71,8 @@ const validateEmail = (rule: FormItemRule, value: string) => {
       reject(new Error('Email is not empty')); // reject with error message
     }
 
-    const regex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-    if (!regex.test(value)) {
+    const regex = /^\w+([\\.-]?\w+)*@\w+([\\.-]?\w+)*(\.\w{2,3})+$/;
+    if (!regex.test(value.trim())) {
       reject(new Error('Email invalid')); // reject with error message
     } else {
       resolve();
@@ -88,7 +88,7 @@ const validatePassword = (rule: FormItemRule, value: string) => {
       reject(new Error('Password must be between 8 and 20 characters'));
     } else if (
       formValue.value.password !== formValue.value.confirmPassword &&
-      rule?.field === 'confirmPassword' &&
+      (rule as any)?.field === 'confirmPassword' &&
       viewMode.value === 'register'
     ) {
       reject(new Error('Confirm password is not match'));
