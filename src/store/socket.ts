@@ -1,35 +1,149 @@
 import { defineStore } from 'pinia';
-// import { useSettingStore } from '@/store/setting';
-import { io } from 'socket.io-client';
-import { Storage } from '@/utils/helper';
+import { Socket, io } from 'socket.io-client';
+import { useAuthStore } from '@/store/auth';
+
+interface AckSwitch {
+  [key: number]: {
+    pos: number;
+    state: boolean;
+    cb: (unlock: number, fallbackState: boolean) => void;
+  };
+}
+
+export type eventSocket = 'connect' | 'disconnect';
+
+export type EventSocketHandler = {
+  [key in eventSocket]: ((socket: Socket) => void)[];
+};
 
 export const useSocketStore = defineStore('socket-io', {
-  state: () => ({
-    _firstConnect: true,
-    _socketIo: io(`ws://${Storage.load('hostName')}:${Storage.load('socketPort')}`, { autoConnect: false }),
+  state: (): {
+    _socket: Socket;
+    _ackWait: AckSwitch;
+    _event: EventSocketHandler;
+    firstInit: boolean;
+    idIntervalAck: number | undefined;
+    token: string;
+  } => ({
+    _socket: io(`ws://${import.meta.env.VITE_HOST_NAME}:${import.meta.env.VITE_HOST_SOCKET_PORT}`, {
+      autoConnect: false,
+      auth: (cb) => {
+        const { runtimeToken } = useAuthStore();
+        cb({ token: runtimeToken });
+      },
+    }),
+    _ackWait: {},
+    _event: { connect: [], disconnect: [] },
+    firstInit: true,
+    idIntervalAck: undefined,
+    token: '',
   }),
   actions: {
-    setAuth(token: string) {
-      console.log('Socket set auth');
-      this._socketIo.auth = { token };
+    removeAckWait(key: number) {
+      delete this._ackWait[key];
 
-      /* add event to socket */
-      if (this._firstConnect) {
-        this._socketIo.on('connect', this._onConnect);
-        this._socketIo.on('disconnect', this._onDisconnect);
-        this._firstConnect = false;
+      if (this.idIntervalAck && Object.keys(this._ackWait).length === 0) {
+        /* remove time Interval */
+        this.removeAckInterval();
+      }
+    },
+    removeAllAckWait() {
+      this._ackWait = {};
+    },
+    setAckWait(key: number, value: number, pastState: boolean, cb: (unlock: number, fallbackState: boolean) => void) {
+      this._ackWait[key] = { pos: value, state: pastState, cb };
+
+      if (this.idIntervalAck === undefined && Object.keys(this._ackWait).length > 0) {
+        /* add time Interval */
+        this.createAckInterval();
+      }
+    },
+    getAckWait(key: number) {
+      return this._ackWait[key];
+    },
+    createAckInterval() {
+      console.log('create ack interval');
+
+      this.idIntervalAck = setInterval(() => {
+        /* check ack is outdate */
+        const now = Date.now();
+
+        Object.keys(this._ackWait).forEach((key) => {
+          const _ackDate = parseInt(key);
+          console.log(_ackDate);
+
+          if (now - _ackDate > 3000) {
+            const ctxAck = this._ackWait[_ackDate];
+            ctxAck.cb(ctxAck.pos, ctxAck.state);
+            this.removeAckWait(_ackDate);
+          }
+        });
+      }, 2000) as unknown as number;
+    },
+    removeAckInterval() {
+      if (this.idIntervalAck) {
+        console.log('remove ack interval');
+
+        clearInterval(this.idIntervalAck);
+        this.idIntervalAck = undefined;
+      }
+    },
+    setAuth(token: string) {
+      this.token = token;
+    },
+    addListener(event: eventSocket, cb: (socket: Socket) => void) {
+      this._event[event].push(cb);
+    },
+    removeListener(event: eventSocket, cb: (socket: Socket) => void) {
+      this._event[event] = this._event[event].filter((item) => item !== cb);
+    },
+    removeAllListener() {
+      this._event = { connect: [], disconnect: [] };
+    },
+    setupSocket(hostName: string, port: number) {
+      /* disconnect if connected */
+      if (this._socket.connected) {
+        /* remove event */
+        this._socket.off('connect');
+        this._socket.off('disconnect');
+        this._socket.disconnect();
       }
 
-      this._socketIo.disconnect().connect();
+      /* create new socket */
+      const _sock = io(`ws://${hostName}:${port}`, {
+        autoConnect: false,
+        auth: (cb) => {
+          const { runtimeToken } = useAuthStore();
+          cb({ token: runtimeToken });
+        },
+      })
+        .on('connect', () => {
+          this._event.connect.forEach((cb) => cb(_sock));
+        })
+        .on('disconnect', () => {
+          this._event.disconnect.forEach((cb) => cb(_sock));
+        });
+
+      /* set socket into store */
+      this._socket = _sock;
     },
-    _onConnect() {
-      console.log('Client socket connected', this._socketIo.id);
+    connect() {
+      this._socket.connect();
     },
-    _onDisconnect() {
-      console.log('Client socket disconnected');
+    logout() {
+      /* disconnect to server */
+      if (this.socketIo.connected) {
+        this.socketIo.disconnect();
+      }
+      /* remove all ack waiting */
+      this.removeAllAckWait();
+      /* remove all listener */
+      this.removeAllListener();
+      /* remove ack interval */
+      this.removeAckInterval();
     },
   },
   getters: {
-    socketIo: (state) => state._socketIo,
+    socketIo: (state) => state._socket,
   },
 });

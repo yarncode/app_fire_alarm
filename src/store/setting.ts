@@ -1,49 +1,52 @@
 import { defineStore } from 'pinia';
-import { PayloadConfigEnv } from '@/config';
 
-import { Storage } from '@/utils/helper';
-
-interface SettingStore extends PayloadConfigEnv {
-  [key: string]: any;
+export interface SettingServer {
+  hostName: string;
+  portApi: number;
+  portSocket: number;
+  entryPath: string;
+  apiVersion: string;
 }
 
-export const useSettingStore = defineStore('setting-store', {
-  state: (): SettingStore => ({
+interface SettingState {
+  server: SettingServer;
+  device: {
+    hideWarning: boolean;
+  };
+}
+
+export const useSettingStore = defineStore('settings', {
+  state: (): SettingState => ({
     server: {
-      hostName: Storage.loadValueByKey('hostName', 'localhost'),
-      apiPort: Storage.loadValueByKey('apiPort', 3300),
-      socketPort: Storage.loadValueByKey('socketPort', 3000),
-      entryPath: Storage.loadValueByKey('entryPath', 'api'),
-      apiVersion: Storage.loadValueByKey('apiVersion', 'v1'),
+      hostName: localStorage.getItem('hostName') ?? import.meta.env.VITE_HOST_NAME,
+      portApi: parseInt(localStorage.getItem('portApi') ?? import.meta.env.VITE_HOST_API_PORT),
+      portSocket: parseInt(localStorage.getItem('portSocket') ?? import.meta.env.VITE_HOST_SOCKET_PORT),
+      entryPath: localStorage.getItem('entryPath') ?? import.meta.env.VITE_ENTRY_PATH,
+      apiVersion: localStorage.getItem('apiVersion') ?? import.meta.env.VITE_API_VERSION,
+    },
+    device: {
+      hideWarning: localStorage.getItem('hideWarning') === 'true' ? true : false,
     },
   }),
   actions: {
-    _setHostName(hostName: string) {
-      this.server.hostName = hostName;
-      Storage.setValueByKey('hostName', hostName);
+    setHideWarning(value: boolean) {
+      this.device.hideWarning = value;
+      localStorage.setItem('hideWarning', value.toString());
     },
-    _setApiPort(apiPort: number) {
-      this.server.apiPort = apiPort;
-      Storage.setValueByKey('apiPort', apiPort);
+    /* @return true if server setting has changed & false if not */
+    compareServerSetting(value: SettingServer): boolean {
+      return Object.keys(value).find(
+        (key) => value[key as keyof SettingServer] !== this.server[key as keyof SettingServer],
+      )
+        ? true
+        : false;
     },
-    _setSocketPort(socketPort: number) {
-      this.server.socketPort = socketPort;
-      Storage.setValueByKey('socketPort', socketPort);
+    saveServerSetting(value: SettingServer) {
+      this.server = { ...this.server, ...value };
+
+      Object.keys(this.server).forEach((key) => {
+        localStorage.setItem(key, this.server[key as keyof SettingServer].toString());
+      });
     },
-    _setEntryPath(entryPath: string) {
-      this.server.entryPath = entryPath;
-      Storage.setValueByKey('entryPath', entryPath);
-    },
-    _setApiVersion(apiVersion: string) {
-      this.server.apiVersion = apiVersion;
-      Storage.setValueByKey('apiVersion', apiVersion);
-    },
-  },
-  getters: {
-    _hostName: (state) => state.server.hostName,
-    _apiPort: (state) => state.server.apiPort,
-    _socketPort: (state) => state.server.socketPort,
-    _entryPath: (state) => state.server.entryPath,
-    _apiVersion: (state) => state.server.apiVersion,
   },
 });

@@ -1,30 +1,24 @@
 import { createRouter, createWebHistory } from '@ionic/vue-router';
 import { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
-
-import HomePage from '../views/HomePage.vue';
-import AccountPage from '../views/AccountPage.vue';
-import ProfilePage from '../views/ProfilePage.vue';
+import { useSocketStore } from '@/store/socket';
+import { useSettingStore } from '@/store/setting';
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/home',
-  },
-  {
-    path: '/home',
     name: 'Home',
-    component: HomePage,
+    component: () => import('@/views/HomePage.vue'),
   },
   {
     path: '/account',
     name: 'Account',
-    component: AccountPage,
+    component: () => import('@/views/AccountPage.vue'),
   },
   {
     path: '/profile',
     name: 'Profile',
-    component: ProfilePage,
+    component: () => import('@/views/ProfilePage.vue'),
   },
 ];
 
@@ -34,27 +28,37 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore();
+  const { isAuth, activeRunnerCheckToken } = useAuthStore();
+  const { socketIo, setupSocket, connect } = useSocketStore();
+  const { server } = useSettingStore();
 
   /* check is auth */
-  let isAuth = true;
+  let _isAuth = true;
 
   /* if no token found */
-  if (!authStore.runtimeToken || !authStore.refreshToken) {
-    isAuth = false;
+  if (isAuth() === false) {
+    _isAuth = false;
   }
 
-  if (to.name !== 'Account' && isAuth === false) {
+  if (to.name !== 'Account' && _isAuth === false) {
     next({ name: 'Account' });
-  } else if (isAuth) {
+  } else if (_isAuth) {
+    activeRunnerCheckToken()
+      .then(() => {
+        /* start socket client */
+        if (socketIo.disconnected) {
+          setupSocket(server.hostName, server.portSocket);
+          connect();
+        }
+      })
+      .catch(() => {});
+
     /* redirect to home if user attempt to login */
     if (to.name === 'Account') {
       next({ name: 'Home' });
+    } else {
+      next();
     }
-
-    /* dispatch check token */
-    authStore.runCheckRefreshToken();
-    next();
   } else {
     next();
   }

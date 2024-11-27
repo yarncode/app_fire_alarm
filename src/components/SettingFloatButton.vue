@@ -1,117 +1,95 @@
 <template>
-  <n-float-button :right="'10%'" :bottom="'10%'" shape="circle" width="3rem" height="3rem" menu-trigger="click">
-    <n-icon>
-      <SettingsOutline />
-    </n-icon>
-    <template #menu>
-      <n-button-group vertical>
-        <n-button round @click="openSetting">Server</n-button>
-      </n-button-group>
-    </template>
-  </n-float-button>
-  <n-modal
-    class="mx-10"
-    v-model:show="showModal"
-    preset="card"
-    title="Infomation Host"
-    size="small"
-    :mask-closable="false"
-  >
-    <n-space vertical class="mt-2">
-      <n-input round v-model:value="commonSetting.server.hostName" type="text" placeholder="domain" />
-      <n-input round v-model:value="commonSetting.server.entryPath" type="text" placeholder="path" />
-      <n-input round v-model:value="commonSetting.server.apiVersion" type="text" placeholder="api version" />
-      <n-input-number round v-model:value="commonSetting.server.apiPort" type="" placeholder="api version" />
-      <n-input-number round v-model:value="commonSetting.server.socketPort" placeholder="api version" />
-    </n-space>
-    <template #action>
-      <div class="flex justify-end">
-        <n-button @click="saveSetting" round>Save Changes</n-button>
-      </div>
-    </template>
-  </n-modal>
+  <n-space>
+    <n-float-button
+      :show-menu="showModal"
+      :right="'10%'"
+      :bottom="'10%'"
+      shape="circle"
+      width="3rem"
+      height="3rem"
+      menu-trigger="click"
+      @update:show-menu="_mapButtonHandler($route.name?.toString() ?? '')"
+    >
+      <n-icon>
+        <SettingsOutline v-if="$route.name === 'Account'" />
+        <GridOutline v-else />
+      </n-icon>
+    </n-float-button>
+    <n-modal
+      v-model:show="showModal"
+      class="mx-auto w-4/5"
+      preset="card"
+      role="dialog"
+      title="Information Server"
+      size="huge"
+    >
+      <n-space vertical class="mt-2">
+        <n-input v-model:value="serverSetting.hostName" round type="text" placeholder="domain" />
+        <n-input v-model:value="serverSetting.entryPath" round type="text" placeholder="path" />
+        <n-input v-model:value="serverSetting.apiVersion" round type="text" placeholder="api version" />
+        <n-input-number v-model:value="serverSetting.portApi" round placeholder="Api port" />
+        <n-input-number v-model:value="serverSetting.portSocket" round placeholder="Socket port" />
+      </n-space>
+      <template #action>
+        <div class="flex justify-end">
+          <n-button round @click="saveSetting">Save Changes</n-button>
+        </div>
+      </template>
+    </n-modal>
+  </n-space>
 </template>
 
 <script setup lang="ts">
-import { useMessage, NButtonGroup, NInput, NFloatButton, NButton, NIcon, NModal, NSpace, NInputNumber } from 'naive-ui';
-import { SettingsOutline } from '@vicons/ionicons5';
+import { useMessage, NInput, NFloatButton, NButton, NIcon, NModal, NSpace, NInputNumber } from 'naive-ui';
+import { SettingsOutline, GridOutline } from '@vicons/ionicons5';
 import { ref, reactive } from 'vue';
-import { useSettingStore } from '@/store/setting';
-import { useSocketStore } from '@/store/socket';
-import { PayloadConfigEnv } from '@/config';
 import { storeToRefs } from 'pinia';
-
-const {
-  _setHostName,
-  _setApiPort,
-  _setApiVersion,
-  _setEntryPath,
-  _setSocketPort,
-  _hostName,
-  _apiPort,
-  _apiVersion,
-  _entryPath,
-  _socketPort,
-} = useSettingStore();
-
-const {
-  _hostName: _settingHostName,
-  _apiPort: _settingApiPort,
-  _apiVersion: _settingApiVersion,
-  _entryPath: _settingEntryPath,
-  _socketPort: _settingSocketPort,
-} = storeToRefs(useSettingStore());
+import { useSettingStore, SettingServer } from '@/store/setting';
+import { useStateStore } from '@/store/state';
 
 const message = useMessage();
+const { server } = storeToRefs(useSettingStore());
+const { saveServerSetting } = useSettingStore();
+const { toggleMenuSideBar } = useStateStore();
 
-const commonSetting: PayloadConfigEnv = reactive({
-  server: {
-    hostName: _hostName,
-    apiPort: _apiPort,
-    apiVersion: _apiVersion,
-    entryPath: _entryPath,
-    socketPort: _socketPort,
-  },
+const serverSetting: SettingServer = reactive({
+  hostName: server.value.hostName,
+  apiVersion: server.value.apiVersion,
+  entryPath: server.value.entryPath,
+  portApi: server.value.portApi,
+  portSocket: server.value.portSocket,
 });
 
 const showModal = ref(false);
 
 const openSetting = () => {
+  /* reload data from store setting */
+  serverSetting.hostName = server.value.hostName;
+  serverSetting.apiVersion = server.value.apiVersion;
+  serverSetting.entryPath = server.value.entryPath;
+  serverSetting.portApi = server.value.portApi;
+  serverSetting.portSocket = server.value.portSocket;
+
   showModal.value = true;
 };
 
 const saveSetting = () => {
-  let changed = false;
+  /* save server setting */
+  saveServerSetting(serverSetting);
+  /* notify save success */
+  message.success('Server information is saved.');
+};
 
-  if (_settingHostName.value !== commonSetting.server.hostName) {
-    _setHostName(commonSetting.server.hostName);
-    changed = true;
-  }
-
-  if (_settingApiPort.value !== commonSetting.server.apiPort) {
-    _setApiPort(commonSetting.server.apiPort);
-    changed = true;
-  }
-
-  if (_settingApiVersion.value !== commonSetting.server.apiVersion) {
-    _setApiVersion(commonSetting.server.apiVersion);
-    changed = true;
-  }
-
-  if (_settingEntryPath.value !== commonSetting.server.entryPath) {
-    _setEntryPath(commonSetting.server.entryPath);
-    changed = true;
-  }
-
-  if (_settingSocketPort.value !== commonSetting.server.socketPort) {
-    _setSocketPort(commonSetting.server.socketPort);
-    changed = true;
-  }
-
-  if (changed) {
-    message.success('Save setting successfully');
-    /* do something when setting changed */
-    // setRemote(_settingHostName.value, _settingSocketPort.value);
+const _mapButtonHandler = (routeName: string) => {
+  switch (routeName) {
+    case 'Account': {
+      openSetting();
+      break;
+    }
+    default: {
+      toggleMenuSideBar();
+      break;
+    }
   }
 };
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <ion-content :fullscreen="true">
+  <div class="h-full">
     <div style="margin: 0 0.5rem; height: 100%; display: flex; flex-direction: column">
       <div style="width: 100%; padding: 0.5rem 0; display: flex; justify-content: space-between; align-items: center">
         <n-text>Found: {{ devices.filter((item) => item?.online).length }} devices</n-text>
@@ -42,14 +42,14 @@
             </div>
             <n-collapse-transition :show="item.state === 'connected' || item.step.show === true">
               <n-space vertical>
-                <!-- <n-input v-model:value="item.ssid" type="text" placeholder="SSID" /> -->
-                <n-select
+                <n-input v-model:value="item.ssid" type="text" placeholder="SSID" />
+                <!-- <n-select
                   v-model:value="item.ssid"
                   placeholder="SSID"
                   :loading="loadingWiFi"
                   :options="accessPoint"
                   @focus="scanAccessPoint"
-                />
+                /> -->
                 <n-input v-model:value="item.password" type="text" placeholder="Password" />
                 <n-space justify="end">
                   <n-button @click="sendConfig(item)" round>Cấu hình</n-button>
@@ -68,15 +68,14 @@
         <n-text>Không có thiết bị nào được tìm thấy.</n-text>
       </div>
     </div>
-  </ion-content>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { IonContent } from '@ionic/vue';
 import {
   NSelect,
   NButton,
-  NButtonGroup,
+  // NButtonGroup,
   NList,
   NListItem,
   NText,
@@ -178,6 +177,7 @@ const step_default: DeviceStepProps = { show: false, current: 0, status: 'wait',
 const authStore = useAuthStore();
 const profileStore = storeToRefs(useProfileStore());
 const socketStore = useSocketStore();
+const { socketIo } = storeToRefs(useSocketStore());
 const scanning = ref(false);
 const message = useMessage();
 const devices: DeviceProps[] = reactive([]);
@@ -205,16 +205,24 @@ const handleActiveResponse = async (data: DeviceActiveResponse) => {
   }
 };
 
-watchOnce([profileStore.isUpdated], ([status]) => {
-  // console.log('profile is update: ', status);
-  if (status) {
-    /* profile is update */
-    socketStore.socketIo.on(`${profileStore.id.value}/device/active`, handleActiveResponse);
-  }
+watchOnce([profileStore.isUpdated, socketIo], () => {
+  _addListenerAddDevice();
 });
 
+const _addListenerAddDevice = () => {
+  if (profileStore.isUpdated.value && socketStore.socketIo.connected) {
+    console.log('add listener device active');
+    socketStore.socketIo.on(`${profileStore.id.value}/device/active`, handleActiveResponse);
+  }
+};
+
+socketStore.addListener('connect', _addListenerAddDevice);
+
+_addListenerAddDevice();
+
 onUnmounted(() => {
-  socketStore.socketIo.off(`${profileStore.id}/devices`);
+  socketStore.socketIo.off(`${profileStore.id}/device/active`);
+  socketStore.removeListener('connect', _addListenerAddDevice);
 });
 
 Device.getInfo()
@@ -271,7 +279,11 @@ Device.getInfo()
   });
 
 const stopTimerTimoutCreateDevice = (id: string) => {
+  console.log('stop timer: ', id);
+
   const _device = devices.find((item) => item.ble.id === id);
+  console.log('stopTimerTimoutCreateDevice -> devices: ', devices);
+  console.log('stopTimerTimoutCreateDevice -> device: ', _device);
 
   if (_device && _device.step.timerTimeoutId) {
     console.log('clear timer: ', _device.step.timerTimeoutId);
@@ -281,6 +293,9 @@ const stopTimerTimoutCreateDevice = (id: string) => {
 
 const startTimerTimoutCreateDevice = (id: string, time: number) => {
   const _device = devices.find((item) => item.ble.id === id);
+
+  // console.log('startTimerTimoutCreateDevice -> devices: ', devices);
+  // console.log('startTimerTimoutCreateDevice -> device: ', _device);
 
   if (_device) {
     _device.step.timerTimeoutId = setTimeout(() => {
@@ -313,6 +328,7 @@ const closeCollapseDeviceWithTime = async (id: string, time: number) => {
 };
 
 const setStateActive = (id: string, state: ConfigState, status: StepsProps['status']) => {
+  console.log('setStateActive: ', id, state, status);
   let index: number = 0;
   const _found_device = devices.find((item, _index) => {
     if (item.ble.id === id) {
@@ -321,6 +337,9 @@ const setStateActive = (id: string, state: ConfigState, status: StepsProps['stat
     }
     return false;
   });
+
+  console.log('setStateActive -> device: ', _found_device);
+
   if (_found_device) {
     devices[index].step = {
       ...devices[index].step,
@@ -425,8 +444,7 @@ const sendConfig = async (device: DeviceProps) => {
       const ssid_completed = device.ssid.split('___')[0];
       // console.log('send config: ', device.ble.id, ssid_completed);
       const oldToken = authStore.runtimeToken;
-      await authStore.forceRefreshToken();
-      const token = authStore.runtimeToken;
+      const token = await authStore.getRefreshToken();
 
       console.log('token is new', token !== oldToken);
 
@@ -447,7 +465,7 @@ const sendConfig = async (device: DeviceProps) => {
           setStateActive(device.ble.id, 'CONFIG', 'finish');
 
           /* start timer timeout */
-          startTimerTimoutCreateDevice(device.ble.id, 25);
+          startTimerTimoutCreateDevice(device.ble.id, 40);
         },
         (error) => {
           console.error(error);
@@ -521,11 +539,11 @@ const disconnectBle = async (device: DeviceProps) => {
   }
 };
 
-const openBluetooth = async () => {
-  await ble.withPromises.enable();
-};
+// const openBluetooth = async () => {
+//   await ble.withPromises.enable();
+// };
 
-const closeBluetooth = async () => {};
+// const closeBluetooth = async () => {};
 
 const scanBluetooth = async () => {
   try {
